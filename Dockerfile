@@ -1,5 +1,5 @@
-# Use Python 3.12 slim image for smaller size
-FROM python:3.12-slim
+# Use Python 3.13 slim image for smaller size
+FROM python:3.13-slim
 
 # Set working directory
 WORKDIR /app
@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements first for better caching
 COPY requirements.txt .
+
+# Update pip and install necessary build tools
+RUN pip install --upgrade pip
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
