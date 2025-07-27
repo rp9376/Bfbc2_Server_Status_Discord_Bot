@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  bfbc2-bot:
+    build: .
+    container_name: bfbc2-discord-bot
+    restart: unless-stopped
+    environment:
+      # Load environment variables from .env file
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - UPDATE_CHANNEL_ID=${UPDATE_CHANNEL_ID}
+      - BFBC2_SERVER_NAME=${BFBC2_SERVER_NAME}
+      - UPDATE_INTERVAL_SECONDS=${UPDATE_INTERVAL_SECONDS}
+    volumes:
+      # Mount .env file for configuration
+      - ./.env:/app/.env:ro
+    networks:
+      - bfbc2-network
+    # Resource limits for lightweight deployment
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  bfbc2-network:
+    driver: bridge
