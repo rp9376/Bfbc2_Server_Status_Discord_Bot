@@ -58,6 +58,22 @@ current_message = None
 last_server_state = None
 shutdown_event = None
 
+def format_player_columns(players):
+    """Split player list into two columns for separate fields"""
+    if not players:
+        return None, None
+    
+    # Split players into two columns
+    mid_point = (len(players) + 1) // 2
+    column1 = players[:mid_point]
+    column2 = players[mid_point:]
+    
+    # Format each column
+    column1_text = '\n'.join([f"• {player}" for player in column1])
+    column2_text = '\n'.join([f"• {player}" for player in column2]) if column2 else "‌"  # invisible character if empty
+    
+    return column1_text, column2_text
+
 @bot.event
 async def on_ready():
     global shutdown_event
@@ -136,26 +152,24 @@ async def send_server_updates():
             embed.add_field(name="📊 Status", value=player_status, inline=True)
             
             # Show online players if any
-            
             player_list = server_info['players_list']
             
-            # Split players into two columns
-            mid_point = (len(player_list) + 1) // 2
-            column1 = player_list[:mid_point]
-            column2 = player_list[mid_point:]
-            
-            # Format title column
-            embed.add_field(name=f"👥 Online Players: {server_info['players']}", value=f"", inline=False)
-            # Format first column
-            column1_text = '\n'.join([f"•  {player}" for player in column1])
-            
-            # Format second column
-            column2_text = '\n'.join([f"•  {player}" for player in column2])
-
-            # Add both columns as separate fields
-            embed.add_field(name="", value=column1_text, inline=True)
-            if column2:  # Only add second column if there are players in it
+            if player_list:
+                column1_text, column2_text = format_player_columns(player_list)
+                
+                # Add player count header
+                embed.add_field(
+                    name=f"👥 Online Players: {server_info['players']}", 
+                    value="", 
+                    inline=False
+                )
+                
+                # Add two separate columns as inline fields
+                embed.add_field(name="", value=column1_text, inline=True)
                 embed.add_field(name="", value=column2_text, inline=True)
+                
+                # Add empty field to break the line for better layout
+                embed.add_field(name="", value="", inline=True)
         
             #embed.add_field(name="🔗 Server Address", value=f"`{server_info['address']}`", inline=False)
             
@@ -202,138 +216,6 @@ async def send_server_updates():
         # Reset current_message on error so we can try again
         current_message = None
 
-@bot.command(name='setchannel')
-@commands.has_permissions(administrator=True)
-async def set_update_channel(ctx):
-    """Set the current channel as the update channel"""
-    global UPDATE_CHANNEL_ID, current_message, last_server_state
-    UPDATE_CHANNEL_ID = ctx.channel.id
-    
-    # Reset message tracking when setting new channel
-    current_message = None
-    last_server_state = None
-    
-    embed = discord.Embed(
-        title="✅ Channel Set",
-        description=f"This channel ({ctx.channel.mention}) will now receive BFBC2 server updates!",
-        color=0x00ff00
-    )
-    embed.add_field(name="🎮 Monitoring Server", value=f"**{BFBC2_SERVER_NAME or 'Not configured'}**", inline=False)
-    
-    # Show update interval
-    if UPDATE_INTERVAL_SECONDS >= 60:
-        interval_text = f"{UPDATE_INTERVAL_SECONDS // 60} minute{'s' if UPDATE_INTERVAL_SECONDS // 60 != 1 else ''}"
-    else:
-        interval_text = f"{UPDATE_INTERVAL_SECONDS} second{'s' if UPDATE_INTERVAL_SECONDS != 1 else ''}"
-    embed.add_field(name="⏱️ Update Interval", value=f"Every {interval_text}", inline=False)
-    await ctx.send(embed=embed)
-    print(f"Channel set to {ctx.channel.name} ({ctx.channel.id})")
-
-@bot.command(name='info')
-async def bot_info(ctx):
-    """Display information about the bot"""
-    embed = discord.Embed(
-        title="🎮 BFBC2 Server Monitor Bot",
-        description="I monitor BFBC2 server status and player activity!",
-        color=0x7289da
-    )
-    
-    embed.add_field(name="📊 Features", value="• Real-time server status monitoring\n• Player count and list tracking\n• Map and game mode information\n• Configurable update interval", inline=False)
-    embed.add_field(name="⚙️ Commands", value="• `!setchannel` - Set update channel (Admin only)\n• `!info` - Show this information\n• `!server` - Get current server status\n• `!refresh` - Force refresh server data", inline=False)
-    
-    if BFBC2_SERVER_NAME:
-        embed.add_field(name="🎯 Monitored Server", value=f"**{BFBC2_SERVER_NAME}**", inline=False)
-    else:
-        embed.add_field(name="⚠️ Configuration", value="No server configured in .env file", inline=False)
-    
-    # Show update interval
-    if UPDATE_INTERVAL_SECONDS >= 60:
-        interval_text = f"{UPDATE_INTERVAL_SECONDS // 60} minute{'s' if UPDATE_INTERVAL_SECONDS // 60 != 1 else ''}"
-    else:
-        interval_text = f"{UPDATE_INTERVAL_SECONDS} second{'s' if UPDATE_INTERVAL_SECONDS != 1 else ''}"
-    embed.add_field(name="⏱️ Update Interval", value=f"Every {interval_text}", inline=False)
-    
-    await ctx.send(embed=embed)
-
-@bot.command(name='server')
-async def get_server_status(ctx):
-    """Get current server status"""
-    if not BFBC2_SERVER_NAME:
-        await ctx.send("❌ No BFBC2 server configured in .env file!")
-        return
-    
-    await ctx.send("🔄 Fetching server status...")
-    
-    try:
-        server_info = monitor_server_from_env()
-        
-        if not server_info:
-            embed = discord.Embed(
-                title="❌ Server Not Found",
-                description=f"Could not find server: **{BFBC2_SERVER_NAME}**",
-                color=0xff0000
-            )
-        else:
-            color = 0x00ff00 if server_info['current_players'] > 0 else 0xffaa00
-            embed = discord.Embed(
-                title=f"{server_info['name']}",
-                description=f"**{server_info['map']}** - {server_info['game_mode']}",
-                color=color,
-                timestamp=datetime.datetime.now()
-            )
-            
-            embed.add_field(name="👥 Players", value=f"{server_info['players']}", inline=True)
-            embed.add_field(name="🌍 Region", value=server_info['region'], inline=True)
-            #embed.add_field(name="🔗 Address", value=f"`{server_info['address']}`", inline=True)
-            
-            if server_info.get('players_list'):
-                player_list = server_info['players_list']
-                
-                # Split players into two columns
-                mid_point = (len(player_list) + 1) // 2
-                column1 = player_list[:mid_point]
-                column2 = player_list[mid_point:]
-                
-                # Format first column
-                column1_text = '\n'.join([f"• {player}" for player in column1])
-                
-                # Format second column
-                column2_text = '\n'.join([f"• {player}" for player in column2])
-                
-                # Add both columns as separate fields
-                embed.add_field(name="🎯 Online Players (Part 1)", value=column1_text, inline=True)
-                if column2:  # Only add second column if there are players in it
-                    embed.add_field(name="🎯 Online Players (Part 2)", value=column2_text, inline=True)
-        
-        await ctx.send(embed=embed)
-        
-    except Exception as e:
-        await ctx.send(f"❌ Error fetching server data: {str(e)}")
-
-@bot.command(name='refresh')
-@commands.has_permissions(administrator=True)
-async def force_refresh(ctx):
-    """Force refresh the server status message"""
-    global current_message, last_server_state
-    current_message = None
-    last_server_state = None
-    
-    embed = discord.Embed(
-        title="🔄 Refresh Triggered",
-        description="Server status will be refreshed on the next update cycle!",
-        color=0x00ff00
-    )
-    await ctx.send(embed=embed)
-    print("Server status refresh forced by admin")
-
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ You don't have permission to use this command!")
-    elif isinstance(error, commands.CommandNotFound):
-        pass  # Ignore unknown commands
-    else:
-        print(f"Error: {error}")
 
 # Store bot start time
 @bot.event
