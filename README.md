@@ -21,11 +21,29 @@ A Discord bot that monitors Battlefield: Bad Company 2 server status in real-tim
 
 ## 📸 Screenshots
 
-The bot creates dynamic embeds showing:
-- Server name and status (🟢 Active / 🟡 Empty / 🔴 Offline)
-- Current map and game mode
-- Player count with full player list in two columns
-- Real-time updates with configurable intervals
+The bot creates dynamic embeds showing server status in three main states:
+
+### 🟢 Active Server (Players Online)
+![Active Server](images/full_server.png)
+
+*Server with active players showing map, game mode, and player list in organized columns*
+
+### 🟡 Empty Server
+![Empty Server](images/empty_server.png)
+
+*Server online but no players currently connected*
+
+### 🔴 Offline Server
+![Offline Server](images/offline_error.png)
+
+*Server offline or not found - configuration error state*
+
+**Key Features Shown:**
+- 🎯 **Color-coded status** indicators (Green/Yellow/Red)
+- 🗺️ **Current map and game mode** information
+- 👥 **Live player count** with full player lists in two columns
+- ⏰ **Real-time timestamps** and update intervals
+- 🎮 **Clean, organized layout** optimized for Discord
 
 ## 🚀 Quick Start
 
@@ -98,14 +116,6 @@ The bot creates dynamic embeds showing:
 2. Right-click on your desired channel
 3. Select "Copy ID"
 
-## 🤖 Bot Commands
-
-| Command | Permission | Description |
-|---------|------------|-------------|
-| `!info` | Everyone | Show bot information and features |
-| `!server` | Everyone | Get current server status on-demand |
-| `!setchannel` | Admin | Set the current channel for updates |
-| `!refresh` | Admin | Force refresh the server status |
 
 ## 🐳 Docker Deployment
 
@@ -236,30 +246,8 @@ BFBC2_SERVER_NAME=My Awesome
 BFBC2_SERVER_NAME=Awesome
 ```
 
-## 🔮 Future Enhancements
 
-- 📈 Player count history and statistics
-- 📱 Mobile-friendly embed layouts
-- 🎯 Multi-server monitoring support
-- 📊 Advanced analytics and graphs
-- 🔔 Custom notification triggers
-- 🎨 Customizable embed themes
 
-## 🤝 Contributing
-
-This project was gloriously vibe-coded with a perfect blend of:
-- ☕ **Caffeine-fueled creativity**
-- 🤖 **Agentic coding assistance** 
-- ❤️ **Pure passion for BFBC2**
-- 🎯 **Community-driven features**
-
-Want to contribute? We'd love your help! Whether it's:
-- 🐛 Bug fixes and improvements
-- ✨ New features and enhancements
-- 📚 Documentation improvements
-- 🎨 UI/UX suggestions
-
-Just fork, code, and submit a PR! Let's keep the BFBC2 community alive together! 🎮
 
 ## 📜 License
 
@@ -272,16 +260,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 🌟 **BFBC2 Community** for keeping this legendary game alive
 - 🤝 **AI Coding Assistants** for the collaborative development experience
 
-## 📞 Support
-
-Having issues? Need help? Want to share your awesome server?
-
-- 📁 **GitHub Issues**: Report bugs and request features
-- 💬 **Discord**: Join the BFBC2 community discussions
-- 📧 **Email**: Reach out for direct support
-
 ---
 
 *Made with ❤️ for the BFBC2 community. Keep the battlefield alive!* 🎮⚔️
 
-**"In a world full of modern shooters, be a Bad Company 2 legend."** ✨
+
