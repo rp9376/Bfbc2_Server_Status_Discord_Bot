@@ -450,9 +450,6 @@ def main():
     print("🎮 BFBC2 Server Information Tool")
     print("=" * 50)
     
-    # Clear console for better readability
-    os.system('clear' if os.name == 'posix' else 'cls')
-    
     print("Running example demonstrations:\n")
     
     print ("Example 1: Monitor server from .env")
@@ -474,4 +471,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # Clear console for better readability
+    os.system('clear' if os.name == 'posix' else 'cls')
     main()

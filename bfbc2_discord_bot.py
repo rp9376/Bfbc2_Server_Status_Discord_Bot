@@ -74,9 +74,73 @@ def format_player_columns(players):
     
     return column1_text, column2_text
 
+async def cleanup_old_bot_messages(channel):
+    """
+    Clean up old bot messages in the channel, keeping only the most recent one.
+    
+    Args:
+        channel: Discord channel object to clean up
+        
+    Returns:
+        discord.Message or None: The most recent bot message found, if any
+    """
+    if not channel:
+        return None
+    
+    try:
+        print(f"🧹 Scanning channel #{channel.name} for old bot messages...")
+        
+        # Get bot messages from the channel (limit to last 100 messages)
+        bot_messages = []
+        async for message in channel.history(limit=100):
+            if message.author == bot.user and message.embeds:
+                # Check if it's our server status message by looking for embed title patterns
+                embed = message.embeds[0]
+                if (embed.title and ("Server Offline" in embed.title or 
+                                   any(keyword in embed.title.lower() for keyword in ["bfbc2", "battlefield", "server"]))) or \
+                   (embed.footer and "BFBC2 Server Monitor" in embed.footer.text):
+                    bot_messages.append(message)
+        
+        if not bot_messages:
+            print("✅ No old bot messages found")
+            return None
+        
+        # Sort messages by creation time (newest first)
+        bot_messages.sort(key=lambda m: m.created_at, reverse=True)
+        
+        print(f"🔍 Found {len(bot_messages)} bot message(s)")
+        
+        # Keep the newest message, delete the rest
+        newest_message = bot_messages[0]
+        messages_to_delete = bot_messages[1:]
+        
+        if messages_to_delete:
+            print(f"🗑️ Deleting {len(messages_to_delete)} old message(s)...")
+            for old_message in messages_to_delete:
+                try:
+                    await old_message.delete()
+                    await asyncio.sleep(0.5)  # Rate limit protection
+                except discord.NotFound:
+                    pass  # Message already deleted
+                except discord.HTTPException as e:
+                    print(f"⚠️ Could not delete message: {e}")
+            
+            print(f"✅ Cleaned up {len(messages_to_delete)} old message(s)")
+        else:
+            print("✅ Only one bot message found, no cleanup needed")
+        
+        return newest_message
+        
+    except discord.HTTPException as e:
+        print(f"❌ Error during message cleanup: {e}")
+        return None
+    except Exception as e:
+        print(f"❌ Unexpected error during cleanup: {e}")
+        return None
+
 @bot.event
 async def on_ready():
-    global shutdown_event
+    global shutdown_event, current_message
     
     # Initialize shutdown event
     shutdown_event = asyncio.Event()
@@ -86,12 +150,29 @@ async def on_ready():
     print(f'Monitoring server: {BFBC2_SERVER_NAME}')
     print(f'Update interval: {UPDATE_INTERVAL_SECONDS} seconds')
     
+    # Perform cleanup of old messages if channel is configured
+    if UPDATE_CHANNEL_ID:
+        channel = bot.get_channel(UPDATE_CHANNEL_ID)
+        if channel:
+            print(f"🔧 Performing startup cleanup in #{channel.name}...")
+            existing_message = await cleanup_old_bot_messages(channel)
+            if existing_message:
+                current_message = existing_message
+                print(f"📌 Found existing bot message, will update it instead of creating new one")
+            else:
+                print(f"📝 No existing message found, will create new one")
+        else:
+            print(f"⚠️ Channel {UPDATE_CHANNEL_ID} not found for cleanup")
+    
     # Start the background task with dynamic interval
     send_server_updates.change_interval(seconds=UPDATE_INTERVAL_SECONDS)
     send_server_updates.start()
     
     # Start the shutdown monitor task
     shutdown_monitor.start()
+    
+    # Start periodic cleanup task
+    periodic_cleanup.start()
 
 @tasks.loop()
 async def shutdown_monitor():
@@ -100,6 +181,28 @@ async def shutdown_monitor():
     
     # Shutdown event was set - perform cleanup
     await cleanup_and_exit()
+
+@tasks.loop(minutes=30)  # Run cleanup every 30 minutes
+async def periodic_cleanup():
+    """Periodically clean up duplicate bot messages"""
+    global current_message
+    
+    if UPDATE_CHANNEL_ID is None:
+        return
+    
+    channel = bot.get_channel(UPDATE_CHANNEL_ID)
+    if not channel:
+        return
+    
+    try:
+        print("🔄 Running periodic message cleanup...")
+        existing_message = await cleanup_old_bot_messages(channel)
+        if existing_message and existing_message != current_message:
+            # Update our reference to the newest message
+            current_message = existing_message
+            print("📌 Updated current message reference after cleanup")
+    except Exception as e:
+        print(f"❌ Error during periodic cleanup: {e}")
 
 @tasks.loop()  # Will be set dynamically
 async def send_server_updates():
@@ -157,9 +260,13 @@ async def send_server_updates():
             if player_list:
                 column1_text, column2_text = format_player_columns(player_list)
                 
+                # Check if server is full and add FULL indicator
+                is_full = server_info['current_players'] >= server_info['max_players']
+                full_indicator = " - ***FULL***" if is_full else ""
+                
                 # Add player count header
                 embed.add_field(
-                    name=f"👥 Online Players: {server_info['players']}", 
+                    name=f"👥 Online Players: {server_info['players']}{full_indicator}", 
                     value="", 
                     inline=False
                 )
@@ -245,6 +352,11 @@ async def cleanup_and_exit():
     if send_server_updates.is_running():
         send_server_updates.cancel()
         print("✅ Background task stopped")
+    
+    # Stop the periodic cleanup task
+    if periodic_cleanup.is_running():
+        periodic_cleanup.cancel()
+        print("✅ Periodic cleanup task stopped")
     
     # Close the bot connection
     if not bot.is_closed():
